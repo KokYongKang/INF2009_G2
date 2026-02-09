@@ -1,4 +1,4 @@
-# Sensor Integration for Edge-based Room Occupancy Detection
+# Edge-based Room Occupancy Detection
 
 This module handles integration of the mmWave sensor and mini microphone module on a Raspberry Pi for real-time room occupancy detection.
 
@@ -28,7 +28,7 @@ This module handles integration of the mmWave sensor and mini microphone module 
 - `data/mmwave/` : mmWave sensor logs (CSV, for occupancy detection)
 
 ## Usage
-Update `src/main.py` to configure your sensors and run the integration.
+TBC 
 
 ## Authors
 - Team G2
