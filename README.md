@@ -1,6 +1,6 @@
 # Edge-based Room Occupancy Detection
 
-This module handles integration of the mmWave sensor and mini microphone module on a Raspberry Pi for real-time room occupancy detection.
+Project for Real-time room occupancy detection.
 
 ## Features
 - mmWave sensor integration
