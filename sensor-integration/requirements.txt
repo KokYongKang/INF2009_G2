@@ -1,0 +1,4 @@
+# Python dependencies for sensor integration
+RPi.GPIO
+numpy
+sounddevice
