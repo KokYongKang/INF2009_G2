@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from datetime import datetime
 
-# --- mmWave Sensor Mock (Replace with actual sensor code) ---
+# --- mmWave Sensor Mock ---
 
 
 def read_mmwave_sensor():

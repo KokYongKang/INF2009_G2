@@ -4,3 +4,5 @@ soundfile
 opencv-python
 numpy
 RPi.GPIO
+serial
+pyserial
