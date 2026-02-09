@@ -1,4 +1,6 @@
-# Python dependencies for sensor integration
-RPi.GPIO
-numpy
+# For audio, image, and data collection
 sounddevice
+soundfile
+opencv-python
+numpy
+RPi.GPIO
