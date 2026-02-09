@@ -23,6 +23,9 @@ This module handles integration of the mmWave sensor and mini microphone module 
 - `tests/` : Unit tests
 - `docs/` : Documentation
 - `images/` : Diagrams and wiring images
+- `data/audio/` : Recorded audio clips (WAV, for YAMNet)
+- `data/images/` : Captured webcam images (JPG/PNG, for YOLO)
+- `data/mmwave/` : mmWave sensor logs (CSV, for occupancy detection)
 
 ## Usage
 Update `src/main.py` to configure your sensors and run the integration.
