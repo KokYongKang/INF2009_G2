@@ -1,3 +1,22 @@
+# --- Simple sound detection stub ---
+from threading import Thread
+from datetime import datetime
+import time
+import csv
+import os
+import sounddevice as sd
+import numpy as np
+
+
+def detect_sound(threshold=1000, duration=1, samplerate=16000):
+    """Detects if sound exceeds threshold in a short sample."""
+    audio = sd.rec(int(duration * samplerate),
+                   samplerate=samplerate, channels=1, dtype='int16')
+    sd.wait()
+    rms = np.sqrt(np.mean(audio**2))
+    return rms > threshold
+
+
 """
 Enhanced sensor_fusion.py
 - Real-time sensor monitoring
@@ -6,18 +25,17 @@ Enhanced sensor_fusion.py
 - Dashboard update callback stub
 """
 
-import os
-import csv
-import time
-from datetime import datetime
-from threading import Thread
-
 # Example: paths to sensor data
-MMWAVE_CSV = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'mmwave', 'mmwave_logistic_data.csv')
-WEBCAM_IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'images')
-AUDIO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'audio', 'microphone_capture.wav')
+MMWAVE_CSV = os.path.join(os.path.dirname(os.path.dirname(
+    __file__)), 'data', 'mmwave', 'mmwave_logistic_data.csv')
+WEBCAM_IMG_DIR = os.path.join(os.path.dirname(
+    os.path.dirname(__file__)), 'data', 'images')
+AUDIO_PATH = os.path.join(os.path.dirname(os.path.dirname(
+    __file__)), 'data', 'audio', 'microphone_capture.wav')
 
 # --- Analytics/AI hooks (to be implemented by your AI team) ---
+
+
 def analyze_mmwave(row):
     """Return True if presence detected from mmWave row."""
     if not row:
@@ -27,10 +45,12 @@ def analyze_mmwave(row):
     except Exception:
         return False
 
+
 def analyze_webcam(image_path):
     """Stub: Run person detection on image. Returns True if person detected."""
     # TODO: Integrate AI model here
     return None  # Placeholder
+
 
 def analyze_audio(audio_path):
     """Stub: Analyze audio for occupancy cues. Returns True if activity detected."""
@@ -38,6 +58,8 @@ def analyze_audio(audio_path):
     return None  # Placeholder
 
 # --- Real-time monitoring and fusion ---
+
+
 class SensorFusion:
     def __init__(self, poll_interval=1.0, dashboard_callback=None):
         self.poll_interval = poll_interval
@@ -62,10 +84,12 @@ class SensorFusion:
 
     def get_latest_webcam_image(self):
         try:
-            images = [f for f in os.listdir(WEBCAM_IMG_DIR) if f.endswith('.jpg')]
+            images = [f for f in os.listdir(
+                WEBCAM_IMG_DIR) if f.endswith('.jpg')]
             if not images:
                 return None
-            latest = max(images, key=lambda x: os.path.getmtime(os.path.join(WEBCAM_IMG_DIR, x)))
+            latest = max(images, key=lambda x: os.path.getmtime(
+                os.path.join(WEBCAM_IMG_DIR, x)))
             return os.path.join(WEBCAM_IMG_DIR, latest)
         except Exception:
             return None
@@ -110,23 +134,38 @@ class SensorFusion:
 
     def start(self):
         self.running = True
-        Thread(target=self._run, daemon=True).start()
+        Thread(target=self._event_loop, daemon=True).start()
 
     def stop(self):
         self.running = False
 
-    def _run(self):
+    def _event_loop(self):
+        print("[Fusion] Microphone listening for sound events...")
         while self.running:
-            self.fuse_and_analyze()
-            time.sleep(self.poll_interval)
+            if detect_sound():
+                print(
+                    "[Fusion] Sound detected! Activating mmWave and webcam monitoring...")
+                # Monitor mmWave and webcam for 60 seconds
+                end_time = time.time() + 60
+                while time.time() < end_time and self.running:
+                    self.fuse_and_analyze()
+                    time.sleep(self.poll_interval)
+                print(
+                    "[Fusion] Monitoring period ended. Returning to microphone listening.")
+            else:
+                time.sleep(0.5)
 
 # --- Example dashboard update callback ---
+
+
 def dashboard_update(status):
     print(f"[Dashboard] Update: {status}")
 
+
 # --- Example usage ---
 if __name__ == "__main__":
-    fusion = SensorFusion(poll_interval=2.0, dashboard_callback=dashboard_update)
+    fusion = SensorFusion(
+        poll_interval=2.0, dashboard_callback=dashboard_update)
     fusion.start()
     try:
         while True:

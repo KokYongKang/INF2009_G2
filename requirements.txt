@@ -3,6 +3,8 @@ sounddevice
 soundfile
 opencv-python
 numpy
-RPi.GPIO
 serial
 pyserial
+sounddevice
+#For Raspberry Pi GPIO control
+#RPi.GPIO
