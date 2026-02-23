@@ -6,5 +6,6 @@ numpy
 serial
 pyserial
 sounddevice
+ultralytics
 #For Raspberry Pi GPIO control
 #RPi.GPIO
