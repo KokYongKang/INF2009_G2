@@ -9,3 +9,6 @@ sounddevice
 ultralytics
 #For Raspberry Pi GPIO control
 #RPi.GPIO
+
+# dashboard
+Flask==3.1.3

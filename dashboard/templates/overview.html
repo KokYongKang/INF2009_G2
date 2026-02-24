@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}RBS Occupancy Overview{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4">
+
+  <!-- Top bar -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+      <h2 class="page-title mb-1">RBS Occupancy Overview</h2>
+      <p class="page-subtitle mb-0">
+        Admin-facing extension for real-time discussion room occupancy awareness
+      </p>
+    </div>
+    <div class="text-end">
+      <div class="badge-soft">Last updated: {{ summary.last_updated }}</div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">meeting_room</span></div>
+        <div>
+          <div class="stat-label">Total Rooms</div>
+          <div class="stat-value">{{ summary.total_rooms }}</div>
+          <div class="stat-sub">Monitored / configured rooms</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">how_to_reg</span></div>
+        <div>
+          <div class="stat-label">Occupied Now</div>
+          <div class="stat-value">{{ summary.occupied_now }}</div>
+          <div class="stat-sub">Sensor-inferred occupied rooms</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">event_available</span></div>
+        <div>
+          <div class="stat-label">Vacant Now</div>
+          <div class="stat-value">{{ summary.vacant_now }}</div>
+          <div class="stat-sub">Potential walk-in availability</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">warning_amber</span></div>
+        <div>
+          <div class="stat-label">Booked-But-Vacant Alerts</div>
+          <div class="stat-value">{{ summary.mismatch_alerts }}</div>
+          <div class="stat-sub">Booking / occupancy mismatch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main row -->
+  <div class="row g-3">
+    <!-- Room overview table -->
+    <div class="col-12 col-xl-8">
+      <div class="dashboard-card h-100">
+        <div class="card-header-custom">
+          <div>
+            <h5 class="mb-1">Discussion Room Overview</h5>
+            <p class="text-muted mb-0 small">Multi-room admin view (DR-01 live prototype, others mock for scalability demo)</p>
+          </div>
+          <span class="section-count">{{ room_pagination.total_items }} rooms</span>
+        </div>
+
+        <div class="card-body-custom p-0">
+          <div class="table-responsive">
+            <table class="table table-dark table-custom mb-0">
+              <thead>
+                <tr>
+                  <th>Room</th>
+                  <th>Booking</th>
+                  <th>Sensor</th>
+                  <th>Headcount</th>
+                  <th>Label</th>
+                  <th>Mismatch</th>
+                  <th>Source</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for room in rooms %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ room.room_name }}</div>
+                    <div class="small text-muted">Cap: {{ room.capacity }}</div>
+                  </td>
+                  <td>
+                    <span class="badge-room {{ 'badge-booked' if room.booking_status == 'Booked' else 'badge-free' }}">
+                      {{ room.booking_status }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge-room {{ 'badge-occupied' if room.sensor_occupied else 'badge-vacant' }}">
+                      {{ room.sensor_occupancy_text }}
+                    </span>
+                  </td>
+                  <td>{{ room.headcount }} / {{ room.capacity }}</td>
+                  <td>
+                    <span class="badge-room
+                      {% if room.occupancy_label == 'Vacant' %}badge-vacant
+                      {% elif room.occupancy_label == 'Occupied' %}badge-occupied
+                      {% elif room.occupancy_label == 'Full' %}badge-full
+                      {% else %}badge-over
+                      {% endif %}">
+                      {{ room.occupancy_label }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if room.mismatch %}
+                      <span class="badge-room badge-mismatch">Yes</span>
+                    {% else %}
+                      <span class="badge-room badge-ok">No</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="badge-room {{ 'badge-live' if room.data_source == 'Live' else 'badge-mock' }}">
+                      {{ room.data_source }}
+                    </span>
+                  </td>
+                  <td>
+                    <a class="btn btn-sm btn-detail" href="{{ url_for('room_detail', room_id=room.room_id) }}">
+                      View
+                    </a>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">No rooms available.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card-footer-custom">
+          <div class="pager-meta">
+            Showing {{ room_pagination.start_item }}–{{ room_pagination.end_item }} of {{ room_pagination.total_items }}
+          </div>
+
+          {% if room_pagination.total_pages > 1 %}
+          <div class="pager-controls">
+            {% if room_pagination.has_prev %}
+              <a class="pager-btn"
+                 href="{{ url_for('overview', room_page=room_pagination.prev_page, alert_page=alert_pagination.page) }}">
+                Prev
+              </a>
+            {% else %}
+              <span class="pager-btn disabled">Prev</span>
+            {% endif %}
+
+            <span class="pager-page">
+              Page {{ room_pagination.page }} / {{ room_pagination.total_pages }}
+            </span>
+
+            {% if room_pagination.has_next %}
+              <a class="pager-btn"
+                 href="{{ url_for('overview', room_page=room_pagination.next_page, alert_page=alert_pagination.page) }}">
+                Next
+              </a>
+            {% else %}
+              <span class="pager-btn disabled">Next</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col-12 col-xl-4">
+      <!-- Active Alerts (dynamic + paged) -->
+      <div class="dashboard-card mb-3">
+        <div class="card-header-custom">
+          <h5 class="mb-0">Active Alerts</h5>
+          <span class="section-count">{{ alert_pagination.total_items }} total</span>
+        </div>
+
+        <div class="card-body-custom">
+          {% if admin_alerts and admin_alerts|length > 0 %}
+            <div class="d-flex flex-column gap-2">
+              {% for alert in admin_alerts %}
+                <div class="alert-item alert-{{ alert.severity }}">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="alert-pill">{{ alert.severity|upper }}</span>
+                    <span class="small text-muted">{{ alert.room_name }}</span>
+                  </div>
+
+                  <div class="fw-semibold small mb-1">{{ alert.title }}</div>
+                  <div class="small text-muted mb-2">{{ alert.message }}</div>
+
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="small text-muted">{{ alert.timestamp }}</span>
+                    <a class="btn btn-sm btn-detail" href="{{ url_for('room_detail', room_id=alert.room_id) }}">
+                      View Room
+                    </a>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="alert-empty">
+              <div class="fw-semibold mb-1">No active alerts</div>
+              <div class="small text-muted">
+                All monitored rooms are currently within expected conditions.
+              </div>
+            </div>
+          {% endif %}
+
+          {% if alert_pagination.total_pages > 1 %}
+          <div class="panel-pagination mt-3">
+            {% if alert_pagination.has_prev %}
+              <a class="pager-btn"
+                 href="{{ url_for('overview', room_page=room_pagination.page, alert_page=alert_pagination.prev_page) }}">
+                Prev
+              </a>
+            {% else %}
+              <span class="pager-btn disabled">Prev</span>
+            {% endif %}
+
+            <span class="pager-page">
+              Page {{ alert_pagination.page }} / {{ alert_pagination.total_pages }}
+            </span>
+
+            {% if alert_pagination.has_next %}
+              <a class="pager-btn"
+                 href="{{ url_for('overview', room_page=room_pagination.page, alert_page=alert_pagination.next_page) }}">
+                Next
+              </a>
+            {% else %}
+              <span class="pager-btn disabled">Next</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Weekly chart -->
+      <div class="dashboard-card">
+        <div class="card-header-custom">
+          <h5 class="mb-0">Weekly Utilisation Trend (Placeholder)</h5>
+        </div>
+        <div class="card-body-custom">
+          <div class="chart-box chart-box-overview">
+            <canvas id="overviewUtilChart"></canvas>
+          </div>
+          <p class="small text-muted mt-2 mb-0">
+            Placeholder admin analytics chart. Replace with actual utilisation derived from event logs.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="overview-chart-data" type="application/json">
+  {{ {
+    "labels": overview_chart_labels,
+    "values": overview_chart_values
+  } | tojson }}
+</script>
+
+<script>
+  const overviewChartData = JSON.parse(
+    document.getElementById('overview-chart-data').textContent
+  );
+
+  const overviewCtx = document.getElementById('overviewUtilChart');
+  new Chart(overviewCtx, {
+    type: 'bar',
+    data: {
+      labels: overviewChartData.labels,
+      datasets: [{
+        label: 'Utilisation %',
+        data: overviewChartData.values
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: '#d1d5db' }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#9ca3af' },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            color: '#9ca3af',
+            stepSize: 10,
+            autoSkip: false
+          },
+          grid: { color: 'rgba(255,255,255,0.06)' }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Room Occupancy Detail - {{ state.room_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4">
+
+  <!-- Top bar -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <a href="{{ url_for('overview') }}" class="btn btn-sm btn-detail">&larr; Back to Overview</a>
+        <span class="badge-room {{ 'badge-live' if state.data_source == 'Live' else 'badge-mock' }}">
+          {{ state.data_source }} Data
+        </span>
+        {% if state.booking_mismatch %}
+          <span class="badge-room badge-mismatch">Booking Mismatch</span>
+        {% endif %}
+      </div>
+      <h2 class="page-title mb-1">Room Occupancy Detail - {{ state.room_name }}</h2>
+      <p class="page-subtitle mb-0">
+        Real-time edge occupancy monitoring (mmWave + camera)
+      </p>
+    </div>
+    <div class="text-end">
+      <div class="badge-soft">Last updated: {{ state.last_updated }}</div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">meeting_room</span></div>
+        <div>
+          <div class="stat-label">Room</div>
+          <div class="stat-value">{{ state.room_name }}</div>
+          <div class="stat-sub">Capacity: {{ state.capacity }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">groups</span></div>
+        <div>
+          <div class="stat-label">Headcount</div>
+          <div class="stat-value">{{ state.headcount }} / {{ state.capacity }}</div>
+          <div class="stat-sub">Current estimated count</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">fact_check</span></div>
+        <div>
+          <div class="stat-label">Occupancy Status</div>
+          <div class="stat-value">{{ state.status }}</div>
+          <div class="stat-sub">Rule-based label</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="dashboard-card stat-card">
+        <div class="stat-icon"><span class="material-icons-round">radar</span></div>
+        <div>
+          <div class="stat-label">mmWave Presence</div>
+          <div class="stat-value">{{ state.mmwave_presence }}</div>
+          <div class="stat-sub">0 = no presence, 1 = presence</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle Row -->
+  <div class="row g-3 mb-3">
+    <!-- Chart -->
+    <div class="col-12 col-xl-8">
+      <div class="dashboard-card h-100">
+        <div class="card-header-custom">
+          <div>
+            <h5 class="mb-1">Occupancy Trend (Placeholder)</h5>
+            <p class="text-muted mb-0 small">Replace with real sensor-driven timeline later</p>
+          </div>
+          <span class="badge-soft">{{ state.occupancy_rate }}% current occupancy</span>
+        </div>
+        <div class="card-body-custom">
+          <div class="chart-box chart-box-detail">
+            <canvas id="occupancyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensor / System Health + Data Quality -->
+    <div class="col-12 col-xl-4">
+      <div class="dashboard-card h-100">
+        <div class="card-header-custom">
+          <h5 class="mb-0">Sensor & System Health</h5>
+        </div>
+        <div class="card-body-custom">
+          <div class="health-row">
+            <span>mmWave Sensor</span>
+            <span class="status-dot {{ 'online' if state.mmwave_online else 'offline' }}"></span>
+          </div>
+          <div class="health-row">
+            <span>Camera Pipeline</span>
+            <span class="status-dot {{ 'online' if state.camera_online else 'offline' }}"></span>
+          </div>
+          <div class="health-row">
+            <span>Inference/Fusion Logic</span>
+            <span class="status-dot {{ 'online' if state.fusion_online else 'offline' }}"></span>
+          </div>
+          <div class="health-row">
+            <span>Flask Dashboard</span>
+            <span class="status-dot {{ 'online' if state.dashboard_online else 'offline' }}"></span>
+          </div>
+
+          <hr class="my-3">
+
+          <h6 class="mb-2">Data Quality & Sync</h6>
+
+          <div class="detail-kv">
+            <div class="detail-kv-row">
+              <div class="detail-kv-label">Last mmWave update</div>
+              <div class="detail-kv-value">{{ state.last_mmwave_update }}</div>
+            </div>
+            <div class="detail-kv-row">
+              <div class="detail-kv-label">Last camera update</div>
+              <div class="detail-kv-value">{{ state.last_camera_update }}</div>
+            </div>
+            <div class="detail-kv-row">
+              <div class="detail-kv-label">Last fusion update</div>
+              <div class="detail-kv-value">{{ state.last_fusion_update }}</div>
+            </div>
+            <div class="detail-kv-row">
+              <div class="detail-kv-label">Fusion confidence</div>
+              <div class="detail-kv-value">
+                <span class="badge-room {{ 'badge-ok' if state.fusion_confidence == 'High' else 'badge-full' }}">
+                  {{ state.fusion_confidence }}
+                </span>
+              </div>
+            </div>
+            <div class="detail-kv-row">
+              <div class="detail-kv-label">Booking sync</div>
+              <div class="detail-kv-value">
+                {% if state.booking_mismatch %}
+                  <span class="badge-room badge-mismatch">Mismatch</span>
+                {% else %}
+                  <span class="badge-room badge-ok">In Sync</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="row g-3">
+    <!-- Event Logs -->
+    <div class="col-12 col-xl-8">
+      <div class="dashboard-card h-100">
+        <div class="card-header-custom">
+          <h5 class="mb-0">Recent Event Logs</h5>
+          <span class="section-count">{{ event_logs|length }} entries</span>
+        </div>
+        <div class="card-body-custom p-0">
+          <div class="table-responsive">
+            <table class="table table-dark table-custom mb-0">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event</th>
+                  <th>Source</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for log in event_logs %}
+                <tr>
+                  <td>{{ log.time }}</td>
+                  <td>{{ log.event }}</td>
+                  <td>{{ log.source }}</td>
+                  <td>{{ log.value }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: Room Alerts + Booking Details -->
+    <div class="col-12 col-xl-4">
+      <div class="d-flex flex-column gap-3">
+
+        <!-- Room Alerts -->
+        <div class="dashboard-card">
+          <div class="card-header-custom">
+            <h5 class="mb-0">Room Alerts</h5>
+            <span class="section-count">{{ room_alerts|length }}</span>
+          </div>
+          <div class="card-body-custom">
+            {% if room_alerts and room_alerts|length > 0 %}
+              <div class="d-flex flex-column gap-2 alert-list-scroll">
+                {% for alert in room_alerts %}
+                  <div class="alert-item alert-{{ alert.severity }}">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="alert-pill">{{ alert.severity|upper }}</span>
+                      <span class="small text-muted">{{ state.room_name }}</span>
+                    </div>
+                    <div class="fw-semibold small mb-1">{{ alert.title }}</div>
+                    <div class="small text-muted mb-2">{{ alert.message }}</div>
+                    <div class="small text-muted">{{ alert.timestamp }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="alert-empty">
+                <div class="fw-semibold mb-1">No room alerts</div>
+                <div class="small text-muted">
+                  This room is currently within expected operating conditions.
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Current Booking Details -->
+        <div class="dashboard-card">
+          <div class="card-header-custom">
+            <h5 class="mb-0">Current Booking Details</h5>
+          </div>
+          <div class="card-body-custom">
+            <div class="detail-kv">
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Booking status</div>
+                <div class="detail-kv-value">
+                  <span class="badge-room {{ 'badge-booked' if state.booking_status == 'Booked' else 'badge-free' }}">
+                    {{ state.booking_status }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Booking window</div>
+                <div class="detail-kv-value">{{ booking_details.booking_window }}</div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Booked by</div>
+                <div class="detail-kv-value">{{ booking_details.booked_by }}</div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Minutes remaining</div>
+                <div class="detail-kv-value">
+                  {% if booking_details.minutes_remaining is not none %}
+                    {{ booking_details.minutes_remaining }} min
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Grace period</div>
+                <div class="detail-kv-value">{{ booking_details.grace_status }}</div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Release recommendation</div>
+                <div class="detail-kv-value">{{ booking_details.release_recommendation }}</div>
+              </div>
+            </div>
+
+            {% if state.booking_mismatch %}
+              <div class="note-box mt-3">
+                <strong>Attention:</strong> Booking status and occupancy signals are currently inconsistent for this room.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="detail-chart-data" type="application/json">
+  {{ {
+    "labels": chart_labels,
+    "values": chart_values
+  } | tojson }}
+</script>
+
+<script>
+  const detailChartData = JSON.parse(
+    document.getElementById('detail-chart-data').textContent
+  );
+
+  const ctx = document.getElementById('occupancyChart');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: detailChartData.labels,
+      datasets: [{
+        label: 'Estimated Headcount',
+        data: detailChartData.values,
+        tension: 0.35,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: '#d1d5db' }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#9ca3af' },
+          grid: { color: 'rgba(255,255,255,0.06)' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: '#9ca3af', stepSize: 1 },
+          grid: { color: 'rgba(255,255,255,0.06)' }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}
