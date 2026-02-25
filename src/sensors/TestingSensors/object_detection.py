@@ -4,16 +4,18 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from datetime import datetime
 import time
+from pathlib import Path
 
 
 CAMERA_WIDTH = 320
 CAMERA_HEIGHT = 240
 STORE_INTERVAL = 4.0  # seconds
-MODEL_PATH = "models/blaze_face_short_range.tflite"
-LOG_FILE = "headcount_log.csv"
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "blaze_face_short_range.tflite"
+LOG_FILE = BASE_DIR / "headcount_log.csv"
 
 
-base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+base_options = python.BaseOptions(model_asset_path=str(MODEL_PATH))
 options = vision.FaceDetectorOptions(
     base_options=base_options,
     min_detection_confidence=0.5  # adjust if needed
