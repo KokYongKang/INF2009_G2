@@ -8,6 +8,7 @@ pyserial
 sounddevice
 ultralytics
 mediapipe
+pyserial
 #For Raspberry Pi GPIO control
 #RPi.GPIO
 

@@ -4,7 +4,9 @@ from datetime import datetime
 import time
 import os
 import cv2
-from ultralytics import YOLO
+import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 from TestingSensors.mmwave_sensor import MmwaveSensor
 
 """
@@ -15,24 +17,34 @@ Enhanced sensor_fusion.py
 - Dashboard update callback
 """
 
-def analyze_webcam(image_path):
-    """YOLO person detection: Returns True if a person is detected in the image."""
+
+# --- MediaPipe face detection utility ---
+def analyze_webcam(image_path, detector=None, log_file=None):
+    """MediaPipe face detection: Returns True if a face is detected in the image. Logs headcount if log_file is provided."""
     if image_path and os.path.exists(image_path):
-        mtime = os.path.getmtime(image_path)
-        if time.time() - mtime < 60:
-            try:
-                model = YOLO('yolov8n.pt')  # Use YOLOv8 nano for speed
-                results = model(image_path) 
-                for r in results:
-                    for box in r.boxes:
-                        cls = int(box.cls[0])
-                        # COCO class 0 is 'person'
-                        if cls == 0:
-                            print(f"[Webcam] Person detected in {image_path}")
-                            return True
-                print(f"[Webcam] No person detected in {image_path}")
-            except Exception as e:
-                print(f"[Webcam] YOLO error: {e}")
+        img = cv2.imread(image_path)
+        if img is None:
+            return False
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_img)
+        if detector is None:
+            # Setup MediaPipe detector (default model path, can be customized)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            model_path = os.path.join(base_dir, "models", "blaze_face_short_range.tflite")
+            base_options = python.BaseOptions(model_asset_path=model_path)
+            options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
+            detector = vision.FaceDetector.create_from_options(options)
+        detection_result = detector.detect(mp_image)
+        face_count = len(detection_result.detections) if detection_result.detections else 0
+        if log_file is not None:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_file, "a") as f:
+                f.write(f"{timestamp},{face_count}\n")
+        if face_count > 0:
+            print(f"[Webcam] Face(s) detected in {image_path}: {face_count}")
+            return True
+        else:
+            print(f"[Webcam] No face detected in {image_path}")
     return False
 
 # --- Real-time monitoring and fusion ---
@@ -64,6 +76,7 @@ class SensorFusion:
     def fuse_and_analyze(self):
         presence, distance = self.mmwave.get_presence_and_distance()
         webcam_img = self.get_latest_webcam_image()
+        # Use MediaPipe face detection instead of YOLO
         webcam_person = analyze_webcam(webcam_img)
         occupancy = any([
             presence,
@@ -95,10 +108,17 @@ class SensorFusion:
     def stop(self):
         self.running = False
         self.mmwave.stop_logging()
-        self.mmwave.close()
 
     def _event_loop(self):
         print("mmWave monitoring for presence...")
+        # Setup MediPipe face detector once for efficiency
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_dir, "TestingSensors", "models", "blaze_face_short_range.tflite")
+        base_options = python.BaseOptions(model_asset_path=model_path)
+        options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
+        detector = vision.FaceDetector.create_from_options(options)
+        # Headcount log file path
+        log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'headcount_log.csv')
         while self.running:
             presence, distance = self.mmwave.get_presence_and_distance()
             self.mmwave.log_to_csv(presence, distance)
@@ -110,37 +130,55 @@ class SensorFusion:
                     cap = cv2.VideoCapture(0)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                    model = YOLO('yolov8n.pt')
-                    yolo_person_detected = False
+                    face_detected = False
                     end_time = time.time() + 10  # Activate webcam for 10 seconds
                     frame_count = 0
                     while time.time() < end_time and self.running:
                         ret, frame = cap.read()
                         if ret:
                             frame_count += 1
-                            results = model(frame)
-                            for r in results:
-                                for box in r.boxes:
-                                    cls = int(box.cls[0])
-                                    if cls == 0:
-                                        print(f"YOLO: Person detected in frame {frame_count}")
-                                        yolo_person_detected = True
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+                            detection_result = detector.detect(mp_image)
+                            face_count = len(detection_result.detections) if detection_result.detections else 0
+                            # Log headcount for each frame
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            with open(log_file, "a") as f:
+                                f.write(f"{timestamp},{face_count}\n")
+                            # Overlay headcount on frame
+                            cv2.putText(
+                                frame,
+                                f"Headcount: {face_count}",
+                                (10, 40),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                1,
+                                (0, 255, 0),
+                                2
+                            )
+                            cv2.imshow("Face Detection - MediaPipe", frame)
+                            # Allow exit on ESC
+                            if cv2.waitKey(1) & 0xFF == 27:
+                                print("ESC pressed, exiting webcam early.")
+                                break
+                            if face_count > 0:
+                                print(f"MediaPipe: Face(s) detected in frame {frame_count}: {face_count}")
+                                face_detected = True
                         else:
                             print("Failed to capture webcam frame.")
-                        time.sleep(1)
                     cap.release()
-                    if yolo_person_detected:
-                        print("Occupancy set: Person detected by YOLO.")
+                    cv2.destroyAllWindows()
+                    if face_detected:
+                        print("Occupancy set: Face detected by MediaPipe.")
                         self.status['webcam_person'] = True
                         self.status['occupancy'] = True
                     else:
-                        print("No person detected by YOLO.")
+                        print("No face detected by MediaPipe.")
                         self.status['webcam_person'] = False
                 except Exception as e:
-                    print(f"Webcam/YOLO error: {e}")
+                    print(f"Webcam/MediaPipe error: {e}")
                 print("Monitoring period ended. Returning to mmWave listening.")
-            else:
-                time.sleep(self.poll_interval)
+            # Always sleep for poll_interval at the end of each loop
+            time.sleep(self.poll_interval)
 
 if __name__ == "__main__":
     fusion = SensorFusion()

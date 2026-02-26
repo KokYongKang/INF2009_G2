@@ -1,6 +1,7 @@
 import serial
 import time
 import math
+import serial
 
 class Target:
     def __init__(self, x, y, speed, pixel_distance):
