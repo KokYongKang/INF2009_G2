@@ -5,7 +5,6 @@ This document describes the integration of mmWave, microphone, and webcam sensor
 
 ## Sensors Used
 - **mmWave Sensor**: Detects human presence.
-- **Mini Microphone Module**: Detects sound activity.
 - **Webcam**: Used for person detection and counting via lightweight AI models, providing person count and confidence score.
 
 ## Usage

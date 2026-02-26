@@ -1,4 +1,3 @@
-#Library for interfacing with RD03D 3D Radar Sensor over UART
 import serial
 import time
 import math

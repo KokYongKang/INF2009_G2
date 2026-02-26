@@ -2,7 +2,6 @@
 webcam_sensor.py
 Stub for webcam integration (person detection).
 """
-
 import cv2
 import os
 import time
