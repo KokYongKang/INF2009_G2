@@ -8,6 +8,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from TestingSensors.mmwave_sensor import MmwaveSensor
+import requests
 
 """
 Enhanced sensor_fusion.py
@@ -88,6 +89,8 @@ class SensorFusion:
             'webcam_person': webcam_person,
             'occupancy': occupancy,
             'usage_metrics': self.compute_usage_metrics(occupancy),
+            'headcount': 1 if webcam_person else 0,
+            'faces_detected': 1 if webcam_person else 0
         }
         if self.dashboard_callback:
             self.dashboard_callback(self.status)
@@ -181,7 +184,22 @@ class SensorFusion:
             time.sleep(self.poll_interval)
 
 if __name__ == "__main__":
-    fusion = SensorFusion()
+    # Dashboard callback function
+    def dashboard_callback(status):
+        """Send live sensor data to dashboard"""
+        try:
+            # Update this with your laptop's IP address
+            dashboard_url = 'http://YOUR_LAPTOP_IP:5000/api/sensor-update'
+            response = requests.post(
+                dashboard_url,
+                json=status,
+                timeout=2
+            )
+            print(f"Dashboard update: {response.status_code}")
+        except Exception as e:
+            print(f"Dashboard connection failed: {e}")
+    
+    fusion = SensorFusion(dashboard_callback=dashboard_callback)
     fusion.start()
     try:
         while True:

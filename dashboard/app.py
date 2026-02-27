@@ -1,9 +1,33 @@
 from flask import Flask, render_template, abort, request
-from utils import paginate_items, ROOMS_PER_PAGE, ALERTS_PER_PAGE
+from utils import paginate_items, ROOMS_PER_PAGE, ALERTS_PER_PAGE, ROOMS
 from services import build_room_overview_rows, build_overview_summary, build_admin_alerts
 from room_service import get_room_detail_payload
 
 app = Flask(__name__)
+
+# -----------------------------
+# API Endpoints
+# -----------------------------
+@app.route('/api/sensor-update', methods=['POST'])
+def sensor_update():
+    """Receive live sensor data from Raspberry Pi"""
+    data = request.get_json()
+    
+    if not data:
+        return {"status": "error", "message": "No data received"}, 400
+    
+    # Update SIT-DR-01 room data in ROOMS array
+    room = next((r for r in ROOMS if r["room_id"] == "SIT-DR-01"), None)
+    if room:
+        room["headcount"] = data.get("headcount", 0)
+        room["mmwave_presence"] = 1 if data.get("mmwave_presence") else 0
+        room["last_updated"] = data.get("timestamp", "")
+        room["data_source"] = "Live"
+        
+        print(f"Updated SIT-DR-01: headcount={room['headcount']}, mmwave={room['mmwave_presence']}")
+        return {"status": "ok", "received": data}
+    else:
+        return {"status": "error", "message": "Room SIT-DR-01 not found"}, 404
 
 # -----------------------------
 # Routes
@@ -72,4 +96,4 @@ def room_detail(room_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

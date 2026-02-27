@@ -132,6 +132,9 @@
                     <span class="badge-room {{ 'badge-live' if room.data_source == 'Live' else 'badge-mock' }}">
                       {{ room.data_source }}
                     </span>
+                    {% if room.data_source == 'Live' %}
+                    <span class="live-indicator ms-1">🔴</span>
+                    {% endif %}
                   </td>
                   <td>
                     <a class="btn btn-sm btn-detail" href="{{ url_for('room_detail', room_id=room.room_id) }}">
@@ -320,5 +323,10 @@
       }
     }
   });
+
+// Auto-refresh dashboard every 5 seconds for live data
+setInterval(() => {
+    location.reload();
+}, 5000);
 </script>
 {% endblock %}

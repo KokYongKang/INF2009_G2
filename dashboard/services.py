@@ -2,26 +2,31 @@ from datetime import datetime, timedelta
 from utils import now_str, get_occupancy_label, is_sensor_occupied, ROOMS
 
 def build_room_overview_rows():
-    """Build overview rows for all rooms with calculated metrics"""
+    """Build overview rows with live sensor data"""
     rows = []
     for room in ROOMS:
-        sensor_occupied = is_sensor_occupied(room["headcount"], room["mmwave_presence"])
+        # For live room, use actual sensor data
+        if room.get("data_source") == "Live" and room.get("last_updated"):
+            sensor_occupied = is_sensor_occupied(room["headcount"], room["mmwave_presence"])
+            last_updated = room["last_updated"]
+        else:
+            # Fallback to mock data
+            sensor_occupied = is_sensor_occupied(room["headcount"], room["mmwave_presence"])
+            last_updated = now_str()
+        
         occupancy_label = get_occupancy_label(room["headcount"], room["capacity"])
         mismatch = room["booking_status"] == "Booked" and not sensor_occupied
 
-        rows.append(
-            {
-                **room,
-                "last_updated": now_str(),
-                "sensor_occupied": sensor_occupied,
-                "sensor_occupancy_text": "Occupied" if sensor_occupied else "Vacant",
-                "occupancy_label": occupancy_label,
-                "mismatch": mismatch,
-                "occupancy_rate": round((room["headcount"] / room["capacity"]) * 100, 1)
-                if room["capacity"] > 0
-                else 0,
-            }
-        )
+        rows.append({
+            **room,
+            "last_updated": last_updated,
+            "sensor_occupied": sensor_occupied,
+            "sensor_occupancy_text": "Occupied" if sensor_occupied else "Vacant",
+            "occupancy_label": occupancy_label,
+            "mismatch": mismatch,
+            "occupancy_rate": round((room["headcount"] / room["capacity"]) * 100, 1)
+            if room["capacity"] > 0 else 0,
+        })
     return rows
 
 def build_overview_summary(rows):
