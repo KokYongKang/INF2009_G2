@@ -109,14 +109,7 @@
             <span>Camera Pipeline</span>
             <span class="status-dot {{ 'online' if state.camera_online else 'offline' }}"></span>
           </div>
-          <div class="health-row">
-            <span>Inference/Fusion Logic</span>
-            <span class="status-dot {{ 'online' if state.fusion_online else 'offline' }}"></span>
-          </div>
-          <div class="health-row">
-            <span>Flask Dashboard</span>
-            <span class="status-dot {{ 'online' if state.dashboard_online else 'offline' }}"></span>
-          </div>
+          
 
           <hr class="my-3">
 
@@ -130,28 +123,6 @@
             <div class="detail-kv-row">
               <div class="detail-kv-label">Last camera update</div>
               <div class="detail-kv-value">{{ state.last_camera_update }}</div>
-            </div>
-            <div class="detail-kv-row">
-              <div class="detail-kv-label">Last fusion update</div>
-              <div class="detail-kv-value">{{ state.last_fusion_update }}</div>
-            </div>
-            <div class="detail-kv-row">
-              <div class="detail-kv-label">Fusion confidence</div>
-              <div class="detail-kv-value">
-                <span class="badge-room {{ 'badge-ok' if state.fusion_confidence == 'High' else 'badge-full' }}">
-                  {{ state.fusion_confidence }}
-                </span>
-              </div>
-            </div>
-            <div class="detail-kv-row">
-              <div class="detail-kv-label">Booking sync</div>
-              <div class="detail-kv-value">
-                {% if state.booking_mismatch %}
-                  <span class="badge-room badge-mismatch">Mismatch</span>
-                {% else %}
-                  <span class="badge-room badge-ok">In Sync</span>
-                {% endif %}
-              </div>
             </div>
           </div>
 
@@ -271,7 +242,23 @@
 
               <div class="detail-kv-row">
                 <div class="detail-kv-label">Grace period</div>
-                <div class="detail-kv-value">{{ booking_details.grace_status }}</div>
+                <div class="detail-kv-value">
+                  {% if booking_details.grace_period_mins is not none %}
+                    {{ booking_details.grace_period_mins }} min (after end)
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="detail-kv-row">
+                <div class="detail-kv-label">Grace status</div>
+                <div class="detail-kv-value">
+                  {{ booking_details.grace_status }}
+                  {% if booking_details.grace_status == "In grace period" and booking_details.grace_remaining is not none %}
+                    <span class="text-muted"> ({{ booking_details.grace_remaining }} min left)</span>
+                  {% endif %}
+                </div>
               </div>
 
               <div class="detail-kv-row">
