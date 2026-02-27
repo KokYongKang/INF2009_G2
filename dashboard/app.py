@@ -1,23 +1,71 @@
 # app.py
 from flask import Flask, render_template, abort, request
-from utils import paginate_items, ROOMS_PER_PAGE, ALERTS_PER_PAGE
+from utils import paginate_items, ROOMS_PER_PAGE, ALERTS_PER_PAGE, utcnow_naive
 from services import build_room_overview_rows, build_overview_summary, build_admin_alerts
 from room_service import get_room_detail_payload
-from api_service import process_sensor_update
+from db import get_db
 
 app = Flask(__name__)
 
-# -----------------------------
-# API Endpoints
-# -----------------------------
 @app.route("/api/sensor-update", methods=["POST"])
 def sensor_update():
-    data = request.get_json(silent=True)
-    if not data:
-        return {"status": "error", "message": "No data received"}, 400
+    """
+    Receive live sensor data from Raspberry Pi and persist into MongoDB.
+    Expected JSON (example):
+      {
+        "room_id": "SIT-DR-01",
+        "headcount": 3,
+        "mmwave_presence": true
+      }
+    """
+    data = request.get_json(silent=True) or {}
+    room_id = data.get("room_id", "SIT-DR-01")
 
-    state_update = process_sensor_update(data)
-    return {"status": "ok", "updated": state_update}, 200
+    # Basic validation
+    try:
+        headcount = int(data.get("headcount", 0) or 0)
+    except ValueError:
+        return {"status": "error", "message": "headcount must be an integer"}, 400
+
+    mmwave_presence = 1 if bool(data.get("mmwave_presence", False)) else 0
+
+    now = utcnow_naive()
+    db = get_db()
+
+    # Update latest snapshot (room_state)
+    db["room_state"].update_one(
+        {"room_id": room_id},
+        {"$set": {
+            "room_id": room_id,
+            "data_source": "Live",
+            "headcount": headcount,
+            "mmwave_presence": mmwave_presence,
+            "last_updated": now,
+            "last_mmwave_update": now,   # since this payload included mmWave
+            "last_camera_update": now,   # since this payload included headcount
+        }},
+        upsert=True
+    )
+
+    # Optional: write logs (so your "Recent Event Logs" becomes truly DB-backed)
+    db["event_logs"].insert_many([
+        {
+            "room_id": room_id,
+            "timestamp": now,
+            "source": "mmWave",
+            "event": "mmWave presence detected" if mmwave_presence else "mmWave no presence",
+            "value": mmwave_presence,
+        },
+        {
+            "room_id": room_id,
+            "timestamp": now,
+            "source": "Camera",
+            "event": "Camera headcount updated",
+            "value": headcount,
+        }
+    ])
+
+    return {"status": "ok", "received": {"room_id": room_id, "headcount": headcount, "mmwave_presence": mmwave_presence}}
 
 # -----------------------------
 # Routes
@@ -25,8 +73,8 @@ def sensor_update():
 @app.route("/")
 @app.route("/overview")
 def overview():
-    room_page = request.args.get("room_page", default=1, type=int)
-    alert_page = request.args.get("alert_page", default=1, type=int)
+    room_page = request.args.get("room_page", type=int) or request.args.get("rooms_page", default=1, type=int)
+    alert_page = request.args.get("alert_page", type=int) or request.args.get("alerts_page", default=1, type=int)
 
     rows = build_room_overview_rows()
     summary = build_overview_summary(rows)
