@@ -31,10 +31,10 @@ def analyze_webcam(image_path, detector=None, log_file=None):
         if detector is None:
             # Setup MediaPipe detector (default model path, can be customized)
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            model_path = os.path.join(base_dir, "models", "blaze_face_short_range.tflite")
+            model_path = os.path.join(base_dir, "models", "efficientdet_lite0.tflite")
             base_options = python.BaseOptions(model_asset_path=model_path)
-            options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
-            detector = vision.FaceDetector.create_from_options(options)
+            options = vision.ObjectDetectorOptions(base_options=base_options, score_threshold=0.5, max_results=10)
+            detector = vision.ObjectDetector.create_from_options(options)
         detection_result = detector.detect(mp_image)
         face_count = len(detection_result.detections) if detection_result.detections else 0
         if log_file is not None:
@@ -133,7 +133,7 @@ class SensorFusion:
                     cap = cv2.VideoCapture(0)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                    face_detected = False
+                    person_detected = False
                     end_time = time.time() + 10  # Activate webcam for 10 seconds
                     frame_count = 0
                     while time.time() < end_time and self.running:
@@ -143,34 +143,53 @@ class SensorFusion:
                             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
                             detection_result = detector.detect(mp_image)
-                            face_count = len(detection_result.detections) if detection_result.detections else 0
-                            # Log headcount for each frame
+
+                            person_count = 0
+
+                            if detection_result.detections:
+                                for detection in detection_result.detections:
+                                    category = detection.categories[0]
+                                    if category.category_name == "person":
+                                        person_count += 1
+
+                                        bbox = detection.bounding_box
+                                        x, y, w, h = bbox.origin_x, bbox.origin_y, bbox.width, bbox.height
+
+                                        cv2.rectangle(
+                                        frame,
+                                        (x, y),
+                                        (x + w, y + h),
+                                        (0, 255, 0),
+                                        2
+                                        )
+
+                            # Log person count for each frame
                             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             with open(log_file, "a") as f:
-                                f.write(f"{timestamp},{face_count}\n")
-                            # Overlay headcount on frame
+                                f.write(f"{timestamp},{person_count}\n")
+                            # Overlay person count on frame
                             cv2.putText(
                                 frame,
-                                f"Headcount: {face_count}",
+                                f"No. of people: {person_count}",
                                 (10, 40),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 1,
                                 (0, 255, 0),
                                 2
                             )
-                            cv2.imshow("Face Detection - MediaPipe", frame)
+                            cv2.imshow("Person Detection - MediaPipe", frame)
                             # Allow exit on ESC
                             if cv2.waitKey(1) & 0xFF == 27:
                                 print("ESC pressed, exiting webcam early.")
                                 break
-                            if face_count > 0:
-                                print(f"MediaPipe: Face(s) detected in frame {frame_count}: {face_count}")
-                                face_detected = True
+                            if person_count > 0:
+                                print(f"MediaPipe: People detected in frame {frame_count}: {person_count}")
+                                person_detected = True
                         else:
                             print("Failed to capture webcam frame.")
                     cap.release()
                     cv2.destroyAllWindows()
-                    if face_detected:
+                    if person_detected:
                         print("Occupancy set: Face detected by MediaPipe.")
                         self.status['webcam_person'] = True
                         self.status['occupancy'] = True
