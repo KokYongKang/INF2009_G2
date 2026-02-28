@@ -8,6 +8,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from individualsensors.mmwave_sensor import MmwaveSensor
+from individualsensors.object_detection_sensor import ObjectDetectionSensor
 import requests
 
 """
@@ -60,6 +61,8 @@ class SensorFusion:
             'occupancy': False,
             'usage_metrics': {},
         }
+        self._presence_hold_until = 0
+        self.vision = ObjectDetectionSensor(enable_display=False)
         self.mmwave = MmwaveSensor(log_interval=5)
 
     def get_latest_webcam_image(self):
@@ -75,21 +78,30 @@ class SensorFusion:
 
     def fuse_and_analyze(self):
         presence, distance = self.mmwave.get_presence_and_distance()
-        webcam_img = self.get_latest_webcam_image()
-        # Use MediaPipe face detection 
-        webcam_person = analyze_webcam(webcam_img)
-        occupancy = any([
-            presence,
-            webcam_person is True
-        ])
+
+        now = time.time()
+        if presence:
+            self._presence_hold_until = now + 5   # keep vision alive 5s after last detection
+
+        if now < self._presence_hold_until:
+            self.vision.enable()
+        else:
+            self.vision.disable()
+
+        ## not sure if still need this
+        # webcam_img = self.get_latest_webcam_image()
+        # webcam_person = analyze_webcam(webcam_img)
+
+        person_count = self.vision.get_headcount()
+        occupancy = presence or person_count > 0
         self.status = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'mmwave_presence': presence,
-            'webcam_person': webcam_person,
+            # 'webcam_person': webcam_person,
             'occupancy': occupancy,
             'usage_metrics': self.compute_usage_metrics(occupancy),
-            'headcount': 1 if webcam_person else 0,
-            'faces_detected': 1 if webcam_person else 0
+            'headcount': person_count,
+            # 'faces_detected': 1 if webcam_person else 0
         }
         if self.dashboard_callback:
             self.dashboard_callback(self.status)
@@ -105,100 +117,17 @@ class SensorFusion:
     def start(self):
         self.running = True
         self.mmwave.start_logging()
+        self.vision.start()
         Thread(target=self._event_loop, daemon=True).start()
 
     def stop(self):
         self.running = False
+        self.vision.stop()
         self.mmwave.stop_logging()
 
     def _event_loop(self):
-        print("mmWave monitoring for presence...")
-        # Setup MediPipe face detector once for efficiency
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_dir, "individualsensors", "models", "blaze_face_short_range.tflite")
-        base_options = python.BaseOptions(model_asset_path=model_path)
-        options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
-        detector = vision.FaceDetector.create_from_options(options)
-        # Headcount log file path
-        log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'images', 'headcount_log.csv')
         while self.running:
-            presence, distance = self.mmwave.get_presence_and_distance()
-            if presence:
-                print("mmWave detected presence! Activating Webcam")
-                try:
-                    images_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'images')
-                    os.makedirs(images_dir, exist_ok=True)
-                    cap = cv2.VideoCapture(0)
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                    person_detected = False
-                    end_time = time.time() + 10  # Activate webcam for 10 seconds
-                    frame_count = 0
-                    while time.time() < end_time and self.running:
-                        ret, frame = cap.read()
-                        if ret:
-                            frame_count += 1
-                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-                            detection_result = detector.detect(mp_image)
-
-                            person_count = 0
-
-                            if detection_result.detections:
-                                for detection in detection_result.detections:
-                                    category = detection.categories[0]
-                                    if category.category_name == "person":
-                                        person_count += 1
-
-                                        bbox = detection.bounding_box
-                                        x, y, w, h = bbox.origin_x, bbox.origin_y, bbox.width, bbox.height
-
-                                        cv2.rectangle(
-                                        frame,
-                                        (x, y),
-                                        (x + w, y + h),
-                                        (0, 255, 0),
-                                        2
-                                        )
-
-                            # Log person count for each frame
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            with open(log_file, "a") as f:
-                                f.write(f"{timestamp},{person_count}\n")
-                            # Overlay person count on frame
-                            cv2.putText(
-                                frame,
-                                f"No. of people: {person_count}",
-                                (10, 40),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                1,
-                                (0, 255, 0),
-                                2
-                            )
-                            cv2.imshow("Person Detection - MediaPipe", frame)
-                            # Allow exit on ESC
-                            if cv2.waitKey(1) & 0xFF == 27:
-                                print("ESC pressed, exiting webcam early.")
-                                break
-                            if person_count > 0:
-                                print(f"MediaPipe: People detected in frame {frame_count}: {person_count}")
-                                person_detected = True
-                        else:
-                            print("Failed to capture webcam frame.")
-                    cap.release()
-                    cv2.destroyAllWindows()
-                    if person_detected:
-                        print("Occupancy set: Face detected by MediaPipe.")
-                        self.status['webcam_person'] = True
-                        self.status['occupancy'] = True
-                    else:
-                        print("No face detected by MediaPipe.")
-                        self.status['webcam_person'] = False
-                except Exception as e:
-                    print(f"Webcam/MediaPipe error: {e}")
-                print("Monitoring period ended. Returning to mmWave listening.")
-            # Always sleep for poll_interval at the end of each loop
-            self.fuse_and_analyze()  # Update status and dashboard every loop
+            self.fuse_and_analyze()
             time.sleep(self.poll_interval)
 
 if __name__ == "__main__":
@@ -208,7 +137,7 @@ if __name__ == "__main__":
         print(f"[DEBUG] Sending status to dashboard: {status}")
         try:
             # Update this with your laptop's IP address
-            dashboard_url = 'http://LAPTOPIP:5000/api/sensor-update'
+            dashboard_url = 'http://LaptopIP:5000/api/sensor-update'
             response = requests.post(
                 dashboard_url,
                 json=status,
