@@ -2,19 +2,20 @@
 import os
 import csv
 from datetime import datetime
-from TestingSensors.rd03d import RD03D
+from individualsensors.rd03d import RD03D
 import threading
 import time
 
 MMWAVE_DISTANCE_THRESHOLD = 500  # mm, adjust as needed
 
 class MmwaveSensor:
-    def __init__(self, uart_port='/dev/ttyAMA0', baudrate=256000, multi_mode=False):
+    def __init__(self, uart_port='/dev/ttyAMA0', baudrate=256000, multi_mode=False, log_interval=5.0):
         self.radar = RD03D(uart_port=uart_port, baudrate=baudrate, multi_mode=multi_mode)
         self._log_thread = None
         self._log_running = False
         self._latest_presence = 0
         self._latest_distance = 0
+        self.log_interval = log_interval
 
     def get_presence_and_distance(self):
         return self._latest_presence, self._latest_distance
@@ -31,7 +32,7 @@ class MmwaveSensor:
             self._latest_presence = presence
             self._latest_distance = distance
             self.log_to_csv(presence, distance)
-            time.sleep(1)  # Log at 10Hz (adjust as needed)
+            time.sleep(self.log_interval)  # Log at configurable interval
 
     def start_logging(self):
         if not self._log_running:

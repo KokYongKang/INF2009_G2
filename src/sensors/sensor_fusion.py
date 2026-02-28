@@ -7,7 +7,7 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-from TestingSensors.mmwave_sensor import MmwaveSensor
+from individualsensors.mmwave_sensor import MmwaveSensor
 import requests
 
 """
@@ -17,7 +17,6 @@ Enhanced sensor_fusion.py
 - Occupancy status output
 - Dashboard update callback
 """
-
 
 # --- MediaPipe face detection utility ---
 def analyze_webcam(image_path, detector=None, log_file=None):
@@ -61,7 +60,7 @@ class SensorFusion:
             'occupancy': False,
             'usage_metrics': {},
         }
-        self.mmwave = MmwaveSensor()
+        self.mmwave = MmwaveSensor(log_interval=5)
 
     def get_latest_webcam_image(self):
         images_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'images')
@@ -77,7 +76,7 @@ class SensorFusion:
     def fuse_and_analyze(self):
         presence, distance = self.mmwave.get_presence_and_distance()
         webcam_img = self.get_latest_webcam_image()
-        # Use MediaPipe face detection instead of YOLO
+        # Use MediaPipe face detection 
         webcam_person = analyze_webcam(webcam_img)
         occupancy = any([
             presence,
@@ -116,15 +115,14 @@ class SensorFusion:
         print("mmWave monitoring for presence...")
         # Setup MediPipe face detector once for efficiency
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_dir, "TestingSensors", "models", "blaze_face_short_range.tflite")
+        model_path = os.path.join(base_dir, "individualsensors", "models", "blaze_face_short_range.tflite")
         base_options = python.BaseOptions(model_asset_path=model_path)
         options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.5)
         detector = vision.FaceDetector.create_from_options(options)
         # Headcount log file path
-        log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'headcount_log.csv')
+        log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'images', 'headcount_log.csv')
         while self.running:
             presence, distance = self.mmwave.get_presence_and_distance()
-            self.mmwave.log_to_csv(presence, distance)
             if presence:
                 print("mmWave detected presence! Activating Webcam")
                 try:
@@ -200,15 +198,17 @@ class SensorFusion:
                     print(f"Webcam/MediaPipe error: {e}")
                 print("Monitoring period ended. Returning to mmWave listening.")
             # Always sleep for poll_interval at the end of each loop
+            self.fuse_and_analyze()  # Update status and dashboard every loop
             time.sleep(self.poll_interval)
 
 if __name__ == "__main__":
     # Dashboard callback function
     def dashboard_callback(status):
         """Send live sensor data to dashboard"""
+        print(f"[DEBUG] Sending status to dashboard: {status}")
         try:
             # Update this with your laptop's IP address
-            dashboard_url = 'http://YOUR_LAPTOP_IP:5000/api/sensor-update'
+            dashboard_url = 'http://LAPTOPIP:5000/api/sensor-update'
             response = requests.post(
                 dashboard_url,
                 json=status,
