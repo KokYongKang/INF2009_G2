@@ -1,7 +1,12 @@
 # app.py
 from flask import Flask, render_template, abort, request
 from utils import paginate_items, ROOMS_PER_PAGE, ALERTS_PER_PAGE, utcnow_naive
-from services import build_room_overview_rows, build_overview_summary, build_admin_alerts
+from services import (
+    build_room_overview_rows,
+    build_overview_summary,
+    build_admin_alerts,
+    ensure_weekly_utilisation_fresh,
+)
 from room_service import get_room_detail_payload
 from db import get_db
 
@@ -83,8 +88,27 @@ def overview():
     room_pagination = paginate_items(rows, room_page, ROOMS_PER_PAGE)
     alert_pagination = paginate_items(all_admin_alerts, alert_page, ALERTS_PER_PAGE)
 
+    # ✅ Ensure weekly utilisation for the current week exists / is fresh
+    ensure_weekly_utilisation_fresh()
+
+    db = get_db()
+
     overview_chart_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    overview_chart_values = [62, 71, 68, 75, 81, 44, 39]
+
+    doc = db.weekly_utilisation.find_one(
+        {"scope": "overall", "room_id": None},
+        sort=[("week_start", -1)]
+    )
+
+    if doc and isinstance(doc.get("values"), dict):
+        values_map = doc["values"]
+        overview_chart_values = [
+            int(values_map.get(day, 0) or 0)
+            for day in overview_chart_labels
+        ]
+    else:
+        # fallback (only if DB empty)
+        overview_chart_values = [0, 0, 0, 0, 0, 0, 0]
 
     return render_template(
         "overview.html",

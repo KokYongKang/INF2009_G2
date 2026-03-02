@@ -15,12 +15,28 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from db import get_db
 
+# BASE_ROOMS = [
+#     {"room_id": "SIT-DR-01", "room_name": "SIT DR-01", "capacity": 6},
+#     {"room_id": "SIT-DR-02", "room_name": "SIT DR-02", "capacity": 6},
+#     {"room_id": "SIT-DR-03", "room_name": "SIT DR-03", "capacity": 8},
+#     {"room_id": "SIT-DR-04", "room_name": "SIT DR-04", "capacity": 6},
+#     {"room_id": "SIT-DR-05", "room_name": "SIT DR-05", "capacity": 10},
+# ]
+
 BASE_ROOMS = [
     {"room_id": "SIT-DR-01", "room_name": "SIT DR-01", "capacity": 6},
     {"room_id": "SIT-DR-02", "room_name": "SIT DR-02", "capacity": 6},
     {"room_id": "SIT-DR-03", "room_name": "SIT DR-03", "capacity": 8},
     {"room_id": "SIT-DR-04", "room_name": "SIT DR-04", "capacity": 6},
     {"room_id": "SIT-DR-05", "room_name": "SIT DR-05", "capacity": 10},
+
+    {"room_id": "SIT-DR-06", "room_name": "SIT DR-06", "capacity": 6},
+    {"room_id": "SIT-DR-07", "room_name": "SIT DR-07", "capacity": 8},
+    {"room_id": "SIT-DR-08", "room_name": "SIT DR-08", "capacity": 6},
+    {"room_id": "SIT-DR-09", "room_name": "SIT DR-09", "capacity": 6},
+    {"room_id": "SIT-DR-10", "room_name": "SIT DR-10", "capacity": 10},
+    {"room_id": "SIT-DR-11", "room_name": "SIT DR-11", "capacity": 8},
+    {"room_id": "SIT-DR-12", "room_name": "SIT DR-12", "capacity": 6},
 ]
 
 def main(force: bool):

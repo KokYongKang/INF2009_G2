@@ -13,8 +13,20 @@ import argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db import get_db
 
-BOOKED_ROOMS = {"SIT-DR-01", "SIT-DR-02", "SIT-DR-04", "SIT-DR-05"}
-ALL_5 = ["SIT-DR-01", "SIT-DR-02", "SIT-DR-03", "SIT-DR-04", "SIT-DR-05"]
+# BOOKED_ROOMS = {"SIT-DR-01", "SIT-DR-02", "SIT-DR-04", "SIT-DR-05"}
+# ALL_5 = ["SIT-DR-01", "SIT-DR-02", "SIT-DR-03", "SIT-DR-04", "SIT-DR-05"]
+
+ALL_12 = [f"SIT-DR-{i:02d}" for i in range(1, 13)]
+
+BOOKED_ROOMS = {
+    "SIT-DR-01",
+    "SIT-DR-02",
+    "SIT-DR-04",
+    "SIT-DR-05",
+    "SIT-DR-06",
+    "SIT-DR-09",
+    "SIT-DR-11",
+}
 
 def main(force: bool):
     db = get_db()
@@ -27,7 +39,7 @@ def main(force: bool):
 
     inserted = updated = skipped = deleted = 0
 
-    for rid in ALL_5:
+    for rid in ALL_12:
         if rid in BOOKED_ROOMS:
             existing = col.find_one({"room_id": rid})
             if existing and not force:

@@ -47,8 +47,9 @@ def get_room_detail_payload(room_id: str):
     status = get_occupancy_label(headcount, capacity)
     occupancy_rate = round((headcount / capacity) * 100, 1) if capacity else 0
 
-    booking_status = "Booked" if is_booking_active(booking_doc, now) else "Free"
-    booking_mismatch = (booking_status == "Booked" and not sensor_occupied)
+    booking_active = is_booking_active(booking_doc, now)
+    booking_status = "Booked" if booking_doc else "Free"
+    booking_mismatch = (booking_active and not sensor_occupied)
 
     # what your templates use
     state = {

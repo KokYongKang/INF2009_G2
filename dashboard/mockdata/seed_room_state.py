@@ -17,12 +17,50 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import db as db_module
 from db import get_db
 
+# BASE_STATE = {
+#     "SIT-DR-01": {"data_source": "Live", "headcount": 3, "mmwave_presence": 1},
+#     "SIT-DR-02": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 0},
+#     "SIT-DR-03": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 0},
+#     "SIT-DR-04": {"data_source": "Mock", "headcount": 6, "mmwave_presence": 1},
+#     "SIT-DR-05": {"data_source": "Mock", "headcount": 2, "mmwave_presence": 1},
+# }
+
 BASE_STATE = {
+    # DR-01 (cap 6): Live + occupied
     "SIT-DR-01": {"data_source": "Live", "headcount": 3, "mmwave_presence": 1},
+
+    # DR-02 (cap 6): vacant
     "SIT-DR-02": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 0},
+
+    # DR-03 (cap 8): vacant
     "SIT-DR-03": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 0},
-    "SIT-DR-04": {"data_source": "Mock", "headcount": 6, "mmwave_presence": 1},
+
+    # DR-04 (cap 6): occupied (moderate)
+    "SIT-DR-04": {"data_source": "Mock", "headcount": 4, "mmwave_presence": 1},
+
+    # DR-05 (cap 10): occupied (small group)
     "SIT-DR-05": {"data_source": "Mock", "headcount": 2, "mmwave_presence": 1},
+
+    # DR-06 (cap 6): FULL
+    "SIT-DR-06": {"data_source": "Mock", "headcount": 6, "mmwave_presence": 1},
+
+    # DR-07 (cap 8): occupied (walk-in style)
+    "SIT-DR-07": {"data_source": "Mock", "headcount": 5, "mmwave_presence": 1},
+
+    # DR-08 (cap 6): occupied (conflict style)
+    "SIT-DR-08": {"data_source": "Mock", "headcount": 2, "mmwave_presence": 1},
+
+    # DR-09 (cap 6): sensor weird (presence but headcount 0)
+    "SIT-DR-09": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 1},
+
+    # DR-10 (cap 10): FULL
+    "SIT-DR-10": {"data_source": "Mock", "headcount": 10, "mmwave_presence": 1},
+
+    # DR-11 (cap 8): low occupancy
+    "SIT-DR-11": {"data_source": "Mock", "headcount": 1, "mmwave_presence": 1},
+
+    # DR-12 (cap 6): vacant
+    "SIT-DR-12": {"data_source": "Mock", "headcount": 0, "mmwave_presence": 0},
 }
 
 
