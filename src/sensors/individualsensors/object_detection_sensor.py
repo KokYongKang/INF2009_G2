@@ -7,6 +7,17 @@ import time
 from pathlib import Path
 
 class ObjectDetectionSensor:
+    def detect_headcount_in_frame(self, frame):
+        """Detect number of people in a given BGR frame."""
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = self.detector.detect(mp_image)
+        person_count = 0
+        if result.detections:
+            for d in result.detections:
+                if d.categories[0].category_name.lower() == "person":
+                    person_count += 1
+        return person_count
     def __init__(
         self,
         camera_index=0,

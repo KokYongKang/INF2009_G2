@@ -11,6 +11,7 @@ from individualsensors.mmwave_sensor import MmwaveSensor
 from individualsensors.object_detection_sensor import ObjectDetectionSensor
 import requests
 
+from profile_utils import profile_main
 """
 Enhanced sensor_fusion.py
 - Real-time sensor monitoring
@@ -64,6 +65,9 @@ class SensorFusion:
         self._presence_hold_until = 0
         self.vision = ObjectDetectionSensor(enable_display=False)
         self.mmwave = MmwaveSensor(log_interval=5)
+        # Cache for last sent values
+        self._last_sent_presence = None
+        self._last_sent_headcount = None
 
     def get_latest_webcam_image(self):
         images_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'images')
@@ -77,34 +81,35 @@ class SensorFusion:
             return None
 
     def fuse_and_analyze(self):
+        # --- Full-cycle RTT start ---
+        full_cycle_start = time.time()
+
         presence, distance = self.mmwave.get_presence_and_distance()
 
         now = time.time()
         if presence:
             self._presence_hold_until = now + 5   # keep vision alive 5s after last detection
-
+        
         if now < self._presence_hold_until:
             self.vision.enable()
         else:
             self.vision.disable()
-
-        ## not sure if still need this
-        # webcam_img = self.get_latest_webcam_image()
-        # webcam_person = analyze_webcam(webcam_img)
 
         person_count = self.vision.get_headcount()
         occupancy = presence or person_count > 0
         self.status = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'mmwave_presence': presence,
-            # 'webcam_person': webcam_person,
             'occupancy': occupancy,
             'usage_metrics': self.compute_usage_metrics(occupancy),
             'headcount': person_count,
-            # 'faces_detected': 1 if webcam_person else 0
         }
+        # Only send update if presence or headcount changed
         if self.dashboard_callback:
-            self.dashboard_callback(self.status)
+            if (self._last_sent_presence != presence) or (self._last_sent_headcount != person_count):
+                self.dashboard_callback(self.status, full_cycle_start)
+                self._last_sent_presence = presence
+                self._last_sent_headcount = person_count
         return self.status
 
     def compute_usage_metrics(self, occupancy):
@@ -132,26 +137,43 @@ class SensorFusion:
 
 if __name__ == "__main__":
     # Dashboard callback function
-    def dashboard_callback(status):
-        """Send live sensor data to dashboard"""
-        print(f"[DEBUG] Sending status to dashboard: {status}")
+    def dashboard_callback(status, full_cycle_start=None):
+        """Send live sensor data to dashboard and measure RTTs asynchronously."""
+        def send_update():
+            import time
+            print(f"[DEBUG] Sending status to dashboard: {status}")
+            try:
+                dashboard_url = 'http://192.168.137.1:5000/api/sensor-update'
+                network_start = time.time()
+                response = requests.post(
+                    dashboard_url,
+                    json=status,
+                    timeout=2
+                )
+                network_end = time.time()
+                network_rtt_ms = (network_end - network_start) * 1000
+                # Full-cycle RTT: from start of fuse_and_analyze to after dashboard response
+                if full_cycle_start is not None:
+                    full_cycle_rtt_ms = (network_end - full_cycle_start) * 1000
+                    print(f"Dashboard update: {response.status_code} | Network RTT: {network_rtt_ms:.2f} ms | Full-cycle RTT: {full_cycle_rtt_ms:.2f} ms")
+                else:
+                    print(f"Dashboard update: {response.status_code} | Network RTT: {network_rtt_ms:.2f} ms")
+            except Exception as e:
+                print(f"Dashboard connection failed: {e}")
+        Thread(target=send_update, daemon=True).start()
+
+    def main():
+        fusion = SensorFusion(dashboard_callback=dashboard_callback)
+        fusion.start()
         try:
-            # Update this with your laptop's IP address
-            dashboard_url = 'http://LaptopIP:5000/api/sensor-update'
-            response = requests.post(
-                dashboard_url,
-                json=status,
-                timeout=2
-            )
-            print(f"Dashboard update: {response.status_code}")
-        except Exception as e:
-            print(f"Dashboard connection failed: {e}")
-    
-    fusion = SensorFusion(dashboard_callback=dashboard_callback)
-    fusion.start()
-    try:
-        while True:
-            time.sleep(10)
-    except KeyboardInterrupt:
-        fusion.stop()
-        print("[Fusion] Monitoring stopped.")
+            while True:
+                time.sleep(2)
+        except KeyboardInterrupt:
+            fusion.stop()
+            print("[Fusion] Monitoring stopped.")
+
+    # Use profile_utils to run profiling
+    profile_main(
+        main,
+        extra_functions=[SensorFusion.fuse_and_analyze, dashboard_callback]
+    )

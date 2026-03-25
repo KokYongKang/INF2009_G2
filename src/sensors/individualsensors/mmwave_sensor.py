@@ -6,7 +6,7 @@ from individualsensors.rd03d import RD03D
 import threading
 import time
 
-MMWAVE_DISTANCE_THRESHOLD = 500  # mm, adjust as needed
+MMWAVE_DISTANCE_THRESHOLD = 55000 # mm, adjust as needed
 
 class MmwaveSensor:
     def __init__(self, uart_port='/dev/ttyAMA0', baudrate=256000, multi_mode=False, log_interval=5.0):
