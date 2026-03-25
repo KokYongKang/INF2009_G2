@@ -328,5 +328,10 @@
       }
     }
   });
+
+// Auto-refresh room detail every 2 seconds for live data
+setInterval(() => {
+    location.reload();
+}, 2000);
 </script>
 {% endblock %}
