@@ -14,7 +14,7 @@
           {{ state.data_source }} Data
         </span>
         {% if state.booking_mismatch %}
-          <span class="badge-room badge-mismatch">Booking Mismatch</span>
+        <span class="badge-room badge-mismatch">Booking Mismatch</span>
         {% endif %}
       </div>
       <h2 class="page-title mb-1">Room Occupancy Detail - {{ state.room_name }}</h2>
@@ -109,7 +109,7 @@
             <span>Camera Pipeline</span>
             <span class="status-dot {{ 'online' if state.camera_online else 'offline' }}"></span>
           </div>
-          
+
 
           <hr class="my-3">
 
@@ -179,26 +179,26 @@
           </div>
           <div class="card-body-custom">
             {% if room_alerts and room_alerts|length > 0 %}
-              <div class="d-flex flex-column gap-2 alert-list-scroll">
-                {% for alert in room_alerts %}
-                  <div class="alert-item alert-{{ alert.severity }}">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                      <span class="alert-pill">{{ alert.severity|upper }}</span>
-                      <span class="small text-muted">{{ state.room_name }}</span>
-                    </div>
-                    <div class="fw-semibold small mb-1">{{ alert.title }}</div>
-                    <div class="small text-muted mb-2">{{ alert.message }}</div>
-                    <div class="small text-muted">{{ alert.timestamp }}</div>
-                  </div>
-                {% endfor %}
-              </div>
-            {% else %}
-              <div class="alert-empty">
-                <div class="fw-semibold mb-1">No room alerts</div>
-                <div class="small text-muted">
-                  This room is currently within expected operating conditions.
+            <div class="d-flex flex-column gap-2 alert-list-scroll">
+              {% for alert in room_alerts %}
+              <div class="alert-item alert-{{ alert.severity }}">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="alert-pill">{{ alert.severity|upper }}</span>
+                  <span class="small text-muted">{{ state.room_name }}</span>
                 </div>
+                <div class="fw-semibold small mb-1">{{ alert.title }}</div>
+                <div class="small text-muted mb-2">{{ alert.message }}</div>
+                <div class="small text-muted">{{ alert.timestamp }}</div>
               </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert-empty">
+              <div class="fw-semibold mb-1">No room alerts</div>
+              <div class="small text-muted">
+                This room is currently within expected operating conditions.
+              </div>
+            </div>
             {% endif %}
           </div>
         </div>
@@ -233,9 +233,9 @@
                 <div class="detail-kv-label">Minutes remaining</div>
                 <div class="detail-kv-value">
                   {% if booking_details.minutes_remaining is not none %}
-                    {{ booking_details.minutes_remaining }} min
+                  {{ booking_details.minutes_remaining }} min
                   {% else %}
-                    -
+                  -
                   {% endif %}
                 </div>
               </div>
@@ -244,9 +244,9 @@
                 <div class="detail-kv-label">Grace period</div>
                 <div class="detail-kv-value">
                   {% if booking_details.grace_period_mins is not none %}
-                    {{ booking_details.grace_period_mins }} min (after end)
+                  {{ booking_details.grace_period_mins }} min (after end)
                   {% else %}
-                    -
+                  -
                   {% endif %}
                 </div>
               </div>
@@ -255,8 +255,9 @@
                 <div class="detail-kv-label">Grace status</div>
                 <div class="detail-kv-value">
                   {{ booking_details.grace_status }}
-                  {% if booking_details.grace_status == "In grace period" and booking_details.grace_remaining is not none %}
-                    <span class="text-muted"> ({{ booking_details.grace_remaining }} min left)</span>
+                  {% if booking_details.grace_status == "In grace period" and booking_details.grace_remaining is not
+                  none %}
+                  <span class="text-muted"> ({{ booking_details.grace_remaining }} min left)</span>
                   {% endif %}
                 </div>
               </div>
@@ -268,9 +269,9 @@
             </div>
 
             {% if state.booking_mismatch %}
-              <div class="note-box mt-3">
-                <strong>Attention:</strong> Booking status and occupancy signals are currently inconsistent for this room.
-              </div>
+            <div class="note-box mt-3">
+              <strong>Attention:</strong> Booking status and occupancy signals are currently inconsistent for this room.
+            </div>
             {% endif %}
           </div>
         </div>
@@ -340,7 +341,7 @@
       } else if (!isNavigatingAway) {
         scheduleRefresh();
       }
-    }, 2000);
+    }, 1000);
   }
 
   document.addEventListener('click', (e) => {
