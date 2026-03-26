@@ -204,7 +204,7 @@ if __name__ == "__main__":
     def post_status_to_dashboard(status, full_cycle_start=None):
         dashboard_url = os.getenv(
             "DASHBOARD_URL",
-            "http://127.0.0.1:5000/api/sensor-update"
+            "http://192.168.0.144:5000/api/sensor-update"
         )
 
         print(f"[DEBUG] Posting to dashboard: {status}")
