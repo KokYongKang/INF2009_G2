@@ -49,6 +49,7 @@ def on_message(client, userdata, msg):
             }},
             upsert=True
         )
+        print(f"[MQTT][DEBUG] Updated room_state for {room_id}")
         db["sensor_history"].insert_one({
             "event_id": event_id or None,
             "room_id": room_id,
@@ -58,33 +59,7 @@ def on_message(client, userdata, msg):
             "occupancy": occupancy,
             "synced_at": now,
         })
-        occupancy_label = "Occupied" if occupancy else "Vacant"
-        db["event_logs"].insert_many([
-            {
-                "event_id": event_id or None,
-                "room_id": room_id,
-                "timestamp": event_time,
-                "source": "mmWave",
-                "event": "mmWave presence detected" if mmwave_presence else "mmWave no presence",
-                "value": mmwave_presence,
-            },
-            {
-                "event_id": event_id or None,
-                "room_id": room_id,
-                "timestamp": event_time,
-                "source": "Camera",
-                "event": "Camera headcount updated",
-                "value": headcount,
-            },
-            {
-                "event_id": event_id or None,
-                "room_id": room_id,
-                "timestamp": event_time,
-                "source": "Fusion",
-                "event": "Occupancy status evaluated",
-                "value": occupancy_label,
-            }
-        ])
+        print(f"[MQTT][DEBUG] Inserted into sensor_history for {room_id} event_id={event_id}")
         print(f"[MQTT] Processed update for {room_id} headcount={headcount} mmwave={mmwave_presence} occupancy={occupancy}")
     except Exception as e:
         print(f"[MQTT] Error processing message: {e}")
