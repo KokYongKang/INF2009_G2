@@ -258,15 +258,12 @@
       <!-- Weekly chart -->
       <div class="dashboard-card">
         <div class="card-header-custom">
-          <h5 class="mb-0">Weekly Utilisation Trend (Placeholder)</h5>
+          <h5 class="mb-0">Weekly Utilisation Trend</h5>
         </div>
         <div class="card-body-custom">
           <div class="chart-box chart-box-overview">
             <canvas id="overviewUtilChart"></canvas>
           </div>
-          <p class="small text-muted mt-2 mb-0">
-            Placeholder admin analytics chart. Replace with actual utilisation derived from event logs.
-          </p>
         </div>
       </div>
     </div>
@@ -294,7 +291,7 @@
     data: {
       labels: overviewChartData.labels,
       datasets: [{
-        label: 'Utilisation %',
+        label: 'Utilisation',
         data: overviewChartData.values
       }]
     },

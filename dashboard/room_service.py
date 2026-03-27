@@ -149,7 +149,7 @@ def get_room_detail_payload(room_id: str):
         history_docs = list(
             db.sensor_history.find({"room_id": room_id}, {"_id": 0})
             .sort("timestamp", -1)
-            .limit(12)
+            .limit(100)
         )
         history_docs.reverse()
     except Exception:
@@ -167,7 +167,7 @@ def get_room_detail_payload(room_id: str):
             return None
 
     edge_state = _edge_get_latest_state(room_id) if room_id == LIVE_ROOM_ID else None
-    edge_history = _edge_get_recent_history(room_id, limit=12) if room_id == LIVE_ROOM_ID else []
+    edge_history = _edge_get_recent_history(room_id, limit=100) if room_id == LIVE_ROOM_ID else []
     edge_logs = _edge_get_recent_logs(room_id, limit=10) if room_id == LIVE_ROOM_ID else []
 
     capacity = int(room_cfg.get("capacity", 0) or 0)
@@ -226,28 +226,61 @@ def get_room_detail_payload(room_id: str):
         "camera_online": camera_online,
     }
 
+    def _build_chart_points(docs, interval_mins=5, max_points=12):
+        """
+        Build chart points using two rules:
+        1. Every interval_mins with no change → plot 0 (baseline vacant)
+        2. Occupancy changes → plot immediately with actual value
+        Returns the last max_points entries.
+        """
+        if not docs:
+            return [], []
+
+        points = []  # list of (datetime, value)
+        prev_occupancy = None
+        last_plotted_ts = None
+
+        for doc in docs:
+            ts = _coerce_utc_naive_dt(doc.get("timestamp"))
+            if not ts:
+                continue
+            occupancy = int(doc.get("occupancy", 0) or 0)
+
+            # Rule 1: occupancy changed → plot immediately with real value
+            if occupancy != prev_occupancy:
+                points.append((ts, occupancy))
+                last_plotted_ts = ts
+                prev_occupancy = occupancy
+
+            # Rule 2: 5 min passed with no change → plot 0 (baseline vacant)
+            elif last_plotted_ts and (ts - last_plotted_ts).total_seconds() >= interval_mins * 60:
+                points.append((ts, 0))
+                last_plotted_ts = ts
+
+        # Always add the very latest point
+        if docs:
+            last_ts = _coerce_utc_naive_dt(docs[-1].get("timestamp"))
+            last_occ = int(docs[-1].get("occupancy", 0) or 0)
+            if not points or points[-1][0] != last_ts:
+                points.append((last_ts, last_occ))
+
+        points = points[-max_points:]
+        labels = [dt_to_sg_hhmm(ts) if ts else "-" for ts, _ in points]
+        values = [val for _, val in points]
+        return labels, values
+
     # real chart if DB sensor_history exists
     if history_docs:
-        chart_labels = [
-            dt_to_sg_hhmm(_coerce_utc_naive_dt(h.get("timestamp")))
-            if h.get("timestamp") else "-"
-            for h in history_docs
-        ]
-        chart_values = [int(h.get("headcount", 0) or 0) for h in history_docs]
+        chart_labels, chart_values = _build_chart_points(history_docs)
 
     # otherwise use edge-cache history for live room
     elif edge_history:
-        chart_labels = [
-            dt_to_sg_hhmm(_coerce_utc_naive_dt(h.get("timestamp")))
-            if h.get("timestamp") else "-"
-            for h in edge_history
-        ]
-        chart_values = [int(h.get("headcount", 0) or 0) for h in edge_history]
+        chart_labels, chart_values = _build_chart_points(edge_history)
 
     # otherwise keep your original placeholder behavior
     else:
         base_time = datetime.now() - timedelta(minutes=55)
-        chart_values = [2, 0, 1, 4, 0, 3, 3, 0, 1, 4, 0, headcount]
+        chart_values = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]
         chart_labels = [(base_time + timedelta(minutes=5 * i)).strftime("%H:%M") for i in range(len(chart_values))]
 
     # prefer DB-backed logs, else fall back to edge-cache logs for live room

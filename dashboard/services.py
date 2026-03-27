@@ -79,7 +79,7 @@ def monday_start(dt: datetime) -> datetime:
     return start.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def ensure_weekly_utilisation_fresh(max_age_hours: int = 6):
+def ensure_weekly_utilisation_fresh(max_age_hours: int = 1):
     """
     Ensures weekly_utilisation has the current week's overall doc.
     Recomputes if missing or older than max_age_hours.

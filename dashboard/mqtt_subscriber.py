@@ -27,7 +27,8 @@ def on_message(client, userdata, msg):
         mmwave_presence = 1 if bool(payload.get("mmwave_presence", False)) else 0
         occupancy = 1 if bool(payload.get("occupancy", mmwave_presence == 1 or headcount > 0)) else 0
         now = utcnow_naive()
-        event_time = _parse_edge_timestamp(payload.get("event_timestamp")) or now
+        raw_event_time = _parse_edge_timestamp(payload.get("event_timestamp"))
+        event_time = _to_naive_utc(raw_event_time) or now
         db = get_db()
         if event_id:
             existing = db["sensor_history"].find_one({"event_id": event_id}, {"_id": 1})
