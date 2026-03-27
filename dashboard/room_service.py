@@ -230,7 +230,7 @@ def get_room_detail_payload(room_id: str):
     if history_docs:
         chart_labels = [
             dt_to_sg_hhmm(_coerce_utc_naive_dt(h.get("timestamp")))
-            if _coerce_utc_naive_dt(h.get("timestamp")) else "-"
+            if h.get("timestamp") else "-"
             for h in history_docs
         ]
         chart_values = [int(h.get("headcount", 0) or 0) for h in history_docs]
@@ -239,7 +239,7 @@ def get_room_detail_payload(room_id: str):
     elif edge_history:
         chart_labels = [
             dt_to_sg_hhmm(_coerce_utc_naive_dt(h.get("timestamp")))
-            if _coerce_utc_naive_dt(h.get("timestamp")) else "-"
+            if h.get("timestamp") else "-"
             for h in edge_history
         ]
         chart_values = [int(h.get("headcount", 0) or 0) for h in edge_history]
@@ -254,7 +254,7 @@ def get_room_detail_payload(room_id: str):
     if logs:
         event_logs = [
             {
-                "time": dt_to_sg_str(l.get("timestamp")) if l.get("timestamp") else "-",
+                "time": dt_to_sg_str(_coerce_utc_naive_dt(l.get("timestamp"))) if l.get("timestamp") else "-",
                 "event": l.get("event", "-"),
                 "source": l.get("source", "-"),
                 "value": l.get("value", "-"),

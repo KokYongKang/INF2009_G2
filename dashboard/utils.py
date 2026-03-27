@@ -18,10 +18,26 @@ def dt_to_sg_str(dt) -> str:
     if not dt:
         return "-"
     if isinstance(dt, str):
-        return dt
+        # Try to detect if string is already in SG time (naive check: if it matches the current SG time offset)
+        try:
+            s2 = dt.replace("Z", "+00:00")
+            parsed = datetime.fromisoformat(s2)
+            # If the string is timezone-aware and already +08:00, just format as is
+            if parsed.tzinfo is not None and parsed.tzinfo.utcoffset(parsed) == SG_OFFSET:
+                return parsed.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+            # If the string is naive, assume it's already SG if hour > 7 (loose check)
+            if parsed.tzinfo is None and parsed.hour > 7:
+                return parsed.strftime("%Y-%m-%d %H:%M:%S")
+            # Otherwise, treat as UTC and convert
+            return (parsed + SG_OFFSET).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return dt
     # If dt is timezone-aware and already in +08:00, use as is
     if hasattr(dt, 'tzinfo') and dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) == SG_OFFSET:
         return dt.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    # If dt is naive and hour > 7, assume already SG
+    if hasattr(dt, 'hour') and dt.tzinfo is None and dt.hour > 7:
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     # Otherwise, treat as UTC and convert to SG
     return (dt + SG_OFFSET).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -29,9 +45,20 @@ def dt_to_sg_hhmm(dt) -> str:
     if not dt:
         return "-"
     if isinstance(dt, str):
-        return dt
+        try:
+            s2 = dt.replace("Z", "+00:00")
+            parsed = datetime.fromisoformat(s2)
+            if parsed.tzinfo is not None and parsed.tzinfo.utcoffset(parsed) == SG_OFFSET:
+                return parsed.replace(tzinfo=None).strftime("%H:%M")
+            if parsed.tzinfo is None and parsed.hour > 7:
+                return parsed.strftime("%H:%M")
+            return (parsed + SG_OFFSET).strftime("%H:%M")
+        except Exception:
+            return dt
     if hasattr(dt, 'tzinfo') and dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) == SG_OFFSET:
         return dt.replace(tzinfo=None).strftime("%H:%M")
+    if hasattr(dt, 'hour') and dt.tzinfo is None and dt.hour > 7:
+        return dt.strftime("%H:%M")
     return (dt + SG_OFFSET).strftime("%H:%M")
 
 def now_str_sg() -> str:
