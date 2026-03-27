@@ -10,7 +10,8 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from individualsensors.mmwave_sensor import MmwaveSensor
 from individualsensors.object_detection_sensor import ObjectDetectionSensor
-import requests
+
+import paho.mqtt.client as mqtt
 
 from profile_utils import profile_main
 from edge_cache import EdgeCache
@@ -24,6 +25,17 @@ Enhanced sensor_fusion.py
 """
 
 LIVE_ROOM_ID = os.getenv("LIVE_ROOM_ID", "SIT-DR-01")
+
+# MQTT setup
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", None)
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", None)
+
+mqtt_client = mqtt.Client()
+if MQTT_USERNAME and MQTT_PASSWORD:
+    mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 
 
 def analyze_webcam(image_path, detector=None, log_file=None):
@@ -202,33 +214,24 @@ if __name__ == "__main__":
     flush_lock = Lock()
 
     def post_status_to_dashboard(status, full_cycle_start=None):
-        dashboard_url = os.getenv(
-            "DASHBOARD_URL",
-            "http://192.168.0.144:5000/api/sensor-update"
-        )
-
-        print(f"[DEBUG] Posting to dashboard: {status}")
-
+        if not status:
+            return
+        topic = f"rooms/{status['room_id']}/headcount"
+        import json
+        payload = json.dumps(status)
+        print(f"[DEBUG][MQTT] Publishing to {topic}: {payload}")
         network_start = time.time()
-        response = requests.post(
-            dashboard_url,
-            json=status,
-            timeout=2
-        )
-        response.raise_for_status()
-
+        mqtt_client.publish(topic, payload)
         network_end = time.time()
         network_rtt_ms = (network_end - network_start) * 1000
-
         if full_cycle_start is not None:
             full_cycle_rtt_ms = (network_end - full_cycle_start) * 1000
             print(
-                f"Dashboard update: {response.status_code} | "
-                f"Network RTT: {network_rtt_ms:.2f} ms | "
+                f"MQTT publish | Network RTT: {network_rtt_ms:.2f} ms | "
                 f"Full-cycle RTT: {full_cycle_rtt_ms:.2f} ms"
             )
         else:
-            print(f"Dashboard update: {response.status_code} | Network RTT: {network_rtt_ms:.2f} ms")
+            print(f"MQTT publish | Network RTT: {network_rtt_ms:.2f} ms")
 
     def flush_pending_queue(full_cycle_start=None):
         if fusion is None:
