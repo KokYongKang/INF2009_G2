@@ -27,7 +27,7 @@ Enhanced sensor_fusion.py
 LIVE_ROOM_ID = os.getenv("LIVE_ROOM_ID", "SIT-DR-01")
 
 # MQTT setup
-MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_BROKER = "192.168.137.18"
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", None)
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", None)
