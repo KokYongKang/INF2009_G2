@@ -1,6 +1,6 @@
 # --- Simple mmWave + webcam fusion ---
 from threading import Thread, Lock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 import os
 import uuid
@@ -59,7 +59,8 @@ def analyze_webcam(image_path, detector=None, log_file=None):
         detection_result = detector.detect(mp_image)
         face_count = len(detection_result.detections) if detection_result.detections else 0
         if log_file is not None:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sg_tz = timezone(timedelta(hours=8))
+            timestamp = datetime.now(sg_tz).strftime("%Y-%m-%d %H:%M:%S")
             with open(log_file, "a") as f:
                 f.write(f"{timestamp},{face_count}\n")
         if face_count > 0:
@@ -111,8 +112,9 @@ class SensorFusion:
         except Exception:
             return None
 
-    def _now_iso_utc(self):
-        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    def _now_iso_sg(self):
+        sg_tz = timezone(timedelta(hours=8))
+        return datetime.now(sg_tz).replace(microsecond=0).isoformat()
 
     def fuse_and_analyze(self):
         full_cycle_start = time.time()
@@ -130,7 +132,7 @@ class SensorFusion:
 
         person_count = self.vision.get_headcount()
         occupancy = presence or person_count > 0
-        event_timestamp = self._now_iso_utc()
+        event_timestamp = self._now_iso_sg()
 
         self.status = {
             "room_id": self.room_id,

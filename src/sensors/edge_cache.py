@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class EdgeCache:
@@ -86,7 +86,8 @@ class EdgeCache:
             conn.commit()
 
     def save_latest_state(self, status: dict):
-        now_iso = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        sg_tz = timezone(timedelta(hours=8))
+        now_iso = datetime.now(sg_tz).replace(microsecond=0).isoformat()
         with self._lock, self._connect() as conn:
             conn.execute("""
                 INSERT INTO latest_state (room_id, state_json, updated_at)

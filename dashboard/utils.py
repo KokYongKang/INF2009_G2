@@ -19,6 +19,10 @@ def dt_to_sg_str(dt) -> str:
         return "-"
     if isinstance(dt, str):
         return dt
+    # If dt is timezone-aware and already in +08:00, use as is
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) == SG_OFFSET:
+        return dt.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    # Otherwise, treat as UTC and convert to SG
     return (dt + SG_OFFSET).strftime("%Y-%m-%d %H:%M:%S")
 
 def dt_to_sg_hhmm(dt) -> str:
@@ -26,6 +30,8 @@ def dt_to_sg_hhmm(dt) -> str:
         return "-"
     if isinstance(dt, str):
         return dt
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) == SG_OFFSET:
+        return dt.replace(tzinfo=None).strftime("%H:%M")
     return (dt + SG_OFFSET).strftime("%H:%M")
 
 def now_str_sg() -> str:

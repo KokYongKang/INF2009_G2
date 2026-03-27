@@ -2,6 +2,7 @@
 import os
 import csv
 from datetime import datetime
+from datetime import timezone, timedelta
 from individualsensors.rd03d import RD03D
 import threading
 import time
@@ -66,7 +67,7 @@ class MmwaveSensor:
                 if write_header:
                     writer.writerow(["timestamp", "presence", "distance"])
                 writer.writerow([
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S.%f"),
                     presence,
                     distance
                 ])
