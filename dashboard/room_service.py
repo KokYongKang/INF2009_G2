@@ -20,6 +20,10 @@ from services import (
 )
 
 LIVE_ROOM_ID = os.getenv("LIVE_ROOM_ID", "SIT-DR-01")
+
+# For demo use: keep DR-01 always within a current booking window
+FORCE_LIVE_DEMO_BOOKING = os.getenv("FORCE_LIVE_DEMO_BOOKING", "1") == "1"
+
 EDGE_CACHE_DB = os.getenv(
     "EDGE_CACHE_DB",
     os.path.abspath(
@@ -54,6 +58,14 @@ def _coerce_utc_naive_dt(val):
                 continue
 
     return None
+
+
+def _sg_now_naive():
+    """
+    Build a Singapore-local naive datetime from UTC naive time.
+    Used only for booking/demo display logic.
+    """
+    return utcnow_naive() + timedelta(hours=8)
 
 
 def _edge_connect():
@@ -126,8 +138,59 @@ def _edge_get_recent_logs(room_id: str, limit=10):
         conn.close()
 
 
+def _empty_booking_details():
+    return {
+        "booking_window": "-",
+        "booked_by": "-",
+        "minutes_remaining": None,
+        "grace_period_mins": None,
+        "grace_status": "-",
+        "grace_remaining": None,
+        "release_recommendation": "-",
+    }
+
+
+def _build_demo_booking_doc(room_id: str, now_local_naive: datetime):
+    """
+    Build a synthetic booking that is always active 'right now' for demo purposes.
+    Example:
+    - starts 5 minutes ago
+    - ends 55 minutes from now
+
+    IMPORTANT:
+    This uses Singapore-local naive time so the displayed booking window
+    matches the actual time the user sees on screen.
+    """
+    start_dt = now_local_naive - timedelta(minutes=5)
+    end_dt = now_local_naive + timedelta(minutes=55)
+
+    booked_by = "RBS reservation (mock)"
+
+    return {
+        "booking_id": f"demo-{room_id}",
+        "room_id": room_id,
+        "booked_by": booked_by,
+        "reserved_by": booked_by,
+        "reserver_name": booked_by,
+        "user_name": booked_by,
+
+        "start_time": start_dt,
+        "end_time": end_dt,
+        "booking_start": start_dt,
+        "booking_end": end_dt,
+        "start": start_dt,
+        "end": end_dt,
+
+        "grace_period_mins": 10,
+        "grace_period_minutes": 10,
+
+        "is_mock": True,
+    }
+
+
 def get_room_detail_payload(room_id: str):
-    now = utcnow_naive()
+    now = utcnow_naive()          # keep for sensor/state timestamps
+    booking_now = _sg_now_naive() # use for booking/demo display logic
 
     db_available = True
     room_cfg = None
@@ -166,6 +229,10 @@ def get_room_detail_payload(room_id: str):
         else:
             return None
 
+    # Demo override: always show a CURRENT booking for the live room
+    if FORCE_LIVE_DEMO_BOOKING and room_id == LIVE_ROOM_ID:
+        booking_doc = _build_demo_booking_doc(room_id, booking_now)
+
     edge_state = _edge_get_latest_state(room_id) if room_id == LIVE_ROOM_ID else None
     edge_history = _edge_get_recent_history(room_id, limit=100) if room_id == LIVE_ROOM_ID else []
     edge_logs = _edge_get_recent_logs(room_id, limit=10) if room_id == LIVE_ROOM_ID else []
@@ -203,8 +270,11 @@ def get_room_detail_payload(room_id: str):
     status = get_occupancy_label(headcount, capacity)
     occupancy_rate = round((headcount / capacity) * 100, 1) if capacity else 0
 
-    booking_active = is_booking_active(booking_doc, now) if booking_doc else False
-    booking_status = "Booked" if booking_doc else "Free"
+    booking_active = is_booking_active(booking_doc, booking_now) if booking_doc else False
+
+    # For room-detail UI, only show "Booked" if the booking is actually active NOW
+    booking_doc_for_ui = booking_doc if booking_active else None
+    booking_status = "Booked" if booking_doc_for_ui else "Free"
     booking_mismatch = (booking_active and not sensor_occupied)
 
     state = {
@@ -229,14 +299,14 @@ def get_room_detail_payload(room_id: str):
     def _build_chart_points(docs, interval_mins=5, max_points=12):
         """
         Build chart points using two rules:
-        1. Every interval_mins with no change → plot 0 (baseline vacant)
-        2. Occupancy changes → plot immediately with actual value
+        1. Every interval_mins with no change -> plot 0 (baseline vacant)
+        2. Occupancy changes -> plot immediately with actual value
         Returns the last max_points entries.
         """
         if not docs:
             return [], []
 
-        points = []  # list of (datetime, value)
+        points = []
         prev_occupancy = None
         last_plotted_ts = None
 
@@ -246,18 +316,14 @@ def get_room_detail_payload(room_id: str):
                 continue
             occupancy = int(doc.get("occupancy", 0) or 0)
 
-            # Rule 1: occupancy changed → plot immediately with real value
             if occupancy != prev_occupancy:
                 points.append((ts, occupancy))
                 last_plotted_ts = ts
                 prev_occupancy = occupancy
-
-            # Rule 2: 5 min passed with no change → plot 0 (baseline vacant)
             elif last_plotted_ts and (ts - last_plotted_ts).total_seconds() >= interval_mins * 60:
                 points.append((ts, 0))
                 last_plotted_ts = ts
 
-        # Always add the very latest point
         if docs:
             last_ts = _coerce_utc_naive_dt(docs[-1].get("timestamp"))
             last_occ = int(docs[-1].get("occupancy", 0) or 0)
@@ -269,21 +335,15 @@ def get_room_detail_payload(room_id: str):
         values = [val for _, val in points]
         return labels, values
 
-    # real chart if DB sensor_history exists
     if history_docs:
         chart_labels, chart_values = _build_chart_points(history_docs)
-
-    # otherwise use edge-cache history for live room
     elif edge_history:
         chart_labels, chart_values = _build_chart_points(edge_history)
-
-    # otherwise keep your original placeholder behavior
     else:
         base_time = datetime.now() - timedelta(minutes=55)
         chart_values = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]
         chart_labels = [(base_time + timedelta(minutes=5 * i)).strftime("%H:%M") for i in range(len(chart_values))]
 
-    # prefer DB-backed logs, else fall back to edge-cache logs for live room
     if logs:
         event_logs = [
             {
@@ -308,12 +368,16 @@ def get_room_detail_payload(room_id: str):
         event_logs = []
 
     room_alerts = build_room_alerts_for_state(state)
-    booking_details = build_booking_details_from_doc(
-        booking_doc=booking_doc,
-        booking_status=booking_status,
-        now_utc_naive=now,
-        booking_mismatch=booking_mismatch,
-        sensor_occupied=sensor_occupied,
-    )
+
+    if booking_doc_for_ui:
+        booking_details = build_booking_details_from_doc(
+            booking_doc=booking_doc_for_ui,
+            booking_status=booking_status,
+            now_utc_naive=booking_now,
+            booking_mismatch=booking_mismatch,
+            sensor_occupied=sensor_occupied,
+        )
+    else:
+        booking_details = _empty_booking_details()
 
     return state, chart_labels, chart_values, event_logs, room_alerts, booking_details
