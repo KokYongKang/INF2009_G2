@@ -7,7 +7,7 @@ Project for real-time, robust room occupancy detection using sensor fusion, edge
 **GitHub Repository:** 
 
 ## Features
-- **mmWave sensor integration:** Detects presence and distance using radar.
+- **mmWave sensor integration:** Detects presence using radar.
 - **Webcam/Camera integration:** Detects and counts people using object detection (MediaPipe, EfficientDet).
 - **Sensor fusion:** Combines mmWave and camera data for robust occupancy estimation.
 - **Edge cache:** Local SQLite cache for resilience and offline operation.
