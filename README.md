@@ -76,10 +76,6 @@ Project for real-time, robust room occupancy detection using sensor fusion, edge
 4. **Alerts:**
    - Overcapacity, booking mismatch, sensor offline, and more are detected and shown.
 
----
-
-
----
 
 ## Project Diary (Development Log)
 
